@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0" stop-color="#d94f2b"/>
+    <stop offset="1" stop-color="#8a1f1f"/>
+  </linearGradient>
+</defs>
+<rect width="100%" height="100%" rx="40" fill="#071124"/>
+<g transform="translate(56,40)">
+  <path d="M200 0 L360 60 A24 24 0 0 1 380 84 L380 220 A220 220 0 0 1 200 420 A220 220 0 0 1 20 220 L20 84 A24 24 0 0 1 40 60 Z" fill="url(#g)"/>
+  <circle cx="200" cy="150" r="70" fill="#ffd27d" opacity="0.95"/>
+  <path d="M170 140 C180 110, 230 110, 240 140" stroke="#6a2c2c" stroke-width="6" fill="none"/>
+  <path d="M160 170 C180 200, 220 200, 240 170" stroke="#6a2c2c" stroke-width="6" fill="none"/>
+  <text x="60" y="370" fill="#fff" font-family="Verdana" font-size="28">Misión Tharsis</text>
+</g>
+</svg>

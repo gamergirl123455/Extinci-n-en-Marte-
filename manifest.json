@@ -1,0 +1,15 @@
+{
+  "name": "Extinción en Marte",
+  "short_name": "ExtMarte",
+  "start_url": "extincion_en_marte.html",
+  "display": "standalone",
+  "background_color": "#07051a",
+  "theme_color": "#f2b134",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

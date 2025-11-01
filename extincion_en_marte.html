@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Extinción en Marte</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{--bg:#07051a;--accent:#f2b134;--muted:#9aa7c0;font-family:Inter, system-ui, -apple-system, Arial;}
+  html,body{height:100%;margin:0;background:radial-gradient(circle at 20% 10%, #0b1222 0%, #02030b 40%, #000 100%);color:#e6eef8}
+  .wrap{max-width:980px;margin:18px auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px}
+  h1{font-size:20px;margin:0}
+  .subtitle{color:var(--muted);font-size:14px;margin-top:4px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px;padding:14px;margin-top:16px}
+  .center{display:flex;align-items:center;justify-content:center}
+  button.btn{background:var(--accent);border:none;color:#071124;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer}
+  button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer}
+  .choices{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .choice{background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.02);cursor:pointer;text-align:left}
+  .crawl-wrap{height:260px;overflow:hidden;position:relative;background:linear-gradient(180deg, rgba(10,12,20,0.6), rgba(2,3,8,0.95));border-radius:8px;padding:18px}
+  .crawl{transform-origin:50% 100%;animation:crawl 28s linear 1;font-family:Georgia, serif;font-size:18px;line-height:1.6;color:#f6f4ea;text-align:center;width:70%;margin:0 auto;perspective:600px;}
+  @keyframes crawl {0% { transform:rotateX(25deg) translateY(100%); opacity:1} 75% {opacity:1} 100% { transform:rotateX(25deg) translateY(-300%); opacity:0}}
+  .hidden{display:none}
+  .small{font-size:13px;color:var(--muted)}
+  .explain{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-top:10px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Extinción en Marte</h1>
+      <div class="subtitle">Simulación educativa — 4º ESO — Año 2037 — Español (España)</div>
+    </div>
+    <div style="margin-left:auto" class="center"><img src="icon.svg" alt="icon" width="56" height="56"></div>
+  </header>
+
+  <div class="card">
+    <div class="row" style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <div class="small">Modo de juego</div>
+        <div style="margin-top:8px" class="choices">
+          <button class="btn" id="btnIndividual">Modo Individual</button>
+          <button class="btn" id="btnAula">Modo Aula (Cooperativo)</button>
+        </div>
+        <div class="explain small" style="margin-top:12px">La narradora leerá la introducción en voz sintética. Si tu iPad pide permiso para usar audio, acepta.</div>
+      </div>
+
+      <div style="flex:1;min-width:260px">
+        <div class="small">Intro narrada</div>
+        <div class="crawl-wrap" id="crawlWrap">
+          <div class="crawl" id="crawlText">
+            <p><strong>Año 2037 — COLONIA THARSIS</strong></p>
+            <p>La humanidad ha colonizado partes de Marte. Una extraña mutación aparece entre los colonos: crecimientos anómalos en el tracto intestinal que amenazan la estabilidad de la comunidad.</p>
+            <p>Tu misión como joven investigador/a es identificar la causa, diseñar un plan de cribado y prevención, y salvar la colonia antes de una extinción interna.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="center" style="margin-top:12px"><button class="secondary" id="btnPlayCrawl">Reproducir intro</button></div>
+  </div>
+
+  <div id="mainArea" class="card hidden" aria-live="polite"></div>
+
+  <footer style="margin-top:12px" class="small">Añadir a pantalla de inicio para instalar como app. La narradora usa la voz del navegador (Web Speech API).</footer>
+</div>
+
+<script>
+// Simple PWA registration
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('service-worker.js').catch(()=>{/*ignore*/});
+}
+
+// State
+const STORAGE_KEY = 'extincion_marte_v1_state';
+let state = {mode:null, step:0, points:0, completed:{}};
+
+// Scenarios (simplified)
+const SCENARIOS = [
+  {id:'s1', title:'Alerta: Alex presenta síntomas', intro:'Alex, colono de la base Tharsis, tiene pérdida de energía, cambios en las deposiciones y sangre en las heces.', question:'¿Cuál es tu primera hipótesis?', options:[
+    {id:'o1', text:'Infección marciana', points:1, feedback:'Buena observación, pero debemos investigar mutaciones.'},
+    {id:'o2', text:'Problema nutricional', points:1, feedback:'La dieta influye; aun así conviene descartar lesiones.'},
+    {id:'o3', text:'Mutación celular (posible cáncer)', points:3, feedback:'Correcto: plantea la hipótesis de mutación y proliferación celular.'}
+  ], teach:'El cáncer se forma cuando células acumulan mutaciones y crecen sin control.'},
+  {id:'s2', title:'Laboratorio: observa las células', intro:'Muestras con células de núcleo grande y formas irregulares.', mini:{type:'pick-image', images:[{id:'i1',label:'A: célula normal',isCancer:false},{id:'i2',label:'B: célula anómala',isCancer:true},{id:'i3',label:'C: célula en mitosis normal',isCancer:false}]}, teach:'Las células tumorales suelen presentar núcleos grandes y pleomorfismo.'},
+  {id:'s3', title:'Decisión: criba y acción', intro:'Decide el plan para la colonia.', question:'¿Qué recomiendas?', options:[
+    {id:'p1', text:'Esperar y observar', points:0, feedback:'Esperar puede empeorar el pronóstico.'},
+    {id:'p2', text:'Cribado y diagnóstico temprano', points:3, feedback:'Correcto: el cribado y diagnóstico temprano salvan vidas.'},
+    {id:'p3', text:'Evacuación inmediata', points:0, feedback:'Evacuación es extrema; primero diagnostica y controla.'}
+  ], teach:'El cribado detecta problemas antes de síntomas graves.'},
+  {id:'s4', title:'Prevención marciana', intro:'Selecciona 3 medidas para reducir riesgos.', checklist:{choices:[
+    {id:'c1', text:'Aumentar fibra en la dieta'},
+    {id:'c2', text:'Reducir ultraprocesados'},
+    {id:'c3', text:'Ejercicio diario'},
+    {id:'c4', text:'Suspender medicina moderna'},
+    {id:'c5', text:'Programar cribados regulares'}
+  ], correct:['c1','c2','c5'], teach:'Fibra, ejercicio y cribado son medidas preventivas.'}}
+];
+
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); updateBadge(); }
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state = JSON.parse(raw);
+  }catch(e){}
+  updateBadge();
+}
+function updateBadge(){
+  const done = Object.keys(state.completed).length;
+  const total = SCENARIOS.length;
+  document.querySelector('.subtitle').textContent = `Simulación — Progreso: ${done}/${total}`;
+}
+
+// UI elements
+const mainArea = document.getElementById('mainArea');
+const btnIndividual = document.getElementById('btnIndividual');
+const btnAula = document.getElementById('btnAula');
+const btnPlayCrawl = document.getElementById('btnPlayCrawl');
+
+btnIndividual.onclick = ()=>{ state.mode='individual'; saveState(); startSimulation(); };
+btnAula.onclick = ()=>{ state.mode='aula'; saveState(); startSimulation(); };
+btnPlayCrawl.onclick = ()=>{ playCrawl(); };
+
+// narration using Web Speech API
+function speak(text, rate=1, pitch=1, lang='es-ES'){
+  if(!('speechSynthesis' in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  utter.rate = rate;
+  utter.pitch = pitch;
+  // choose a voice if available (prefers Spanish voices)
+  const voices = window.speechSynthesis.getVoices();
+  if(voices && voices.length){
+    const v = voices.find(v=>v.lang.startsWith('es')) || voices[0];
+    if(v) utter.voice = v;
+  }
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+// WebAudio fanfare (short)
+function playFanfare(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(now);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.35);
+    osc.frequency.exponentialRampToValueAtTime(660, now + 0.7);
+    osc.stop(now + 1.2);
+  }catch(e){}
+}
+
+// crawl play (music + voice)
+function playCrawl(){
+  const crawl = document.getElementById('crawlText').innerText;
+  // first play fanfare
+  playFanfare();
+  // then narrate after short delay
+  setTimeout(()=>{ speak('Año 2037. La misión de Tharsis informa:', 0.95, 1.0); }, 500);
+  setTimeout(()=>{ speak(crawl, 0.95, 1.0); }, 1800);
+}
+
+// Simulation renderer
+function startSimulation(){
+  document.getElementById('crawlWrap').classList.add('hidden');
+  mainArea.classList.remove('hidden');
+  renderStep();
+}
+
+function renderStep(){
+  saveState();
+  const idx = state.step;
+  if(idx >= SCENARIOS.length){ return renderFinal(); }
+  const s = SCENARIOS[idx];
+  let html = `<h2>${s.title}</h2><div class="small" style="margin-top:6px">${s.intro}</div><div class="explain"><strong>Aprendizaje:</strong> ${s.teach || ''}</div>`;
+  if(s.options){
+    html += '<div class="choices" style="margin-top:12px">';
+    s.options.forEach(o=>{
+      html += `<div class="choice" onclick="chooseOption('${s.id}','${o.id}')"><div style="font-weight:700">${o.text}</div><div class="small" style="margin-top:6px">Haz clic para elegir</div></div>`;
+    });
+    html += '</div>';
+  }else if(s.mini){
+    html += '<div class="choices" style="margin-top:12px">';
+    s.mini.images.forEach(img=>{
+      html += `<div class="choice" onclick="chooseImage('${s.id}','${img.id}')"><div style="font-weight:700">${img.label}</div></div>`;
+    });
+    html += '</div>';
+  }else if(s.checklist){
+    html += `<div id="checklistArea" style="margin-top:10px">`;
+    s.checklist.choices.forEach(c=>{
+      html += `<label style="display:block;margin-bottom:6px"><input type="checkbox" data-id="${c.id}"> ${c.text}</label>`;
+    });
+    html += `<div class="center" style="margin-top:8px"><button class="btn" onclick="submitChecklist('${s.id}')">Enviar</button></div></div>`;
+  }
+  html += `<div style="margin-top:12px" class="row"><div><button class="secondary" onclick="prevStep()">← Volver</button></div><div style="margin-left:auto"><button class="secondary" onclick="nextStep()">Saltar →</button></div></div>`;
+  mainArea.innerHTML = html;
+  // narrate short intro
+  speak(s.title + '. ' + s.intro, 0.95, 1.0);
+}
+
+function chooseOption(sid, oid){
+  const s = SCENARIOS.find(x=>x.id===sid);
+  const opt = s.options.find(o=>o.id===oid);
+  if(!state.completed[sid]){ state.points += opt.points; state.completed[sid]={choice:oid, points:opt.points}; }
+  else{ const prev = state.completed[sid]; state.points = state.points - prev.points + opt.points; state.completed[sid]={choice:oid, points:opt.points}; }
+  const fb = document.createElement('div'); fb.className='explain'; fb.innerHTML = `<strong>Feedback:</strong> ${opt.feedback} <div class="small" style="margin-top:8px">Puntos: ${opt.points}</div>`; mainArea.appendChild(fb);
+  speak(opt.feedback, 1.0, 1.0);
+  state.step++; saveState();
+  setTimeout(renderStep, 800);
+}
+
+function chooseImage(sid, iid){
+  const s = SCENARIOS.find(x=>x.id===sid);
+  const img = s.mini.images.find(i=>i.id===iid);
+  const pts = img.isCancer ? 3 : 0;
+  if(!state.completed[sid]){ state.points += pts; state.completed[sid]={choice:iid, points:pts}; }
+  else{ const prev = state.completed[sid]; state.points = state.points - prev.points + pts; state.completed[sid]={choice:iid, points:pts}; }
+  const fb = document.createElement('div'); fb.className='explain'; fb.innerHTML = `<strong>${pts? 'Correcto':'No exacto'}</strong> <div class="small" style="margin-top:6px">Puntos: ${pts}</div>`; mainArea.appendChild(fb);
+  speak(pts? 'Correcto':'No exactamente', 1.0, 1.0);
+  state.step++; saveState();
+  setTimeout(renderStep, 900);
+}
+
+function submitChecklist(sid){
+  const s = SCENARIOS.find(x=>x.id===sid);
+  const nodes = document.querySelectorAll('#checklistArea input[type="checkbox"]');
+  const picked = [];
+  nodes.forEach(n=>{ if(n.checked) picked.push(n.getAttribute('data-id')); });
+  let pts = 0;
+  s.checklist.correct.forEach(c=>{ if(picked.includes(c)) pts++; });
+  if(!state.completed[sid]){ state.points += pts; state.completed[sid]={choice:picked, points:pts}; } else { const prev=state.completed[sid]; state.points = state.points - prev.points + pts; state.completed[sid]={choice:picked, points:pts}; }
+  const fb = document.createElement('div'); fb.className='explain'; fb.innerHTML = `<strong>Resultados:</strong> Puntos obtenidos: ${pts}`; mainArea.appendChild(fb);
+  speak('Resultados: has conseguido ' + pts + ' puntos en esta actividad.', 1.0, 1.0);
+  state.step++; saveState();
+  setTimeout(renderStep, 900);
+}
+
+function prevStep(){ if(state.step>0){ state.step--; renderStep(); } else { location.reload(); } }
+function nextStep(){ state.step++; renderStep(); }
+
+function renderFinal(){
+  const pts = state.points;
+  const max = SCENARIOS.length * 3;
+  let msg = '';
+  if(pts >= 8) msg='¡Excelente! Has ayudado a salvar la colonia.';
+  else if(pts >= 4) msg='Bien, has aprendido conceptos clave.';
+  else msg='Repasa los conceptos y vuelve a intentarlo.';
+  let html = `<h2>Resultado final</h2><div class="explain"><strong>Puntos:</strong> ${pts} / ${max} — ${msg}</div>`;
+  html += `<div style="margin-top:12px"><h3>Tus decisiones</h3><div>`;
+  for(const k in state.completed){
+    const rec = state.completed[k];
+    html += `<div class="explain"><strong>${k}</strong> Elección: ${JSON.stringify(rec.choice)} — Puntos: ${rec.points}</div>`;
+  }
+  html += `</div></div><div class="center" style="margin-top:12px"><button class="btn" onclick="downloadReport()">Descargar informe</button> <button class="secondary" onclick="replay()">Repetir</button></div>`;
+  mainArea.innerHTML = html;
+  speak('Evaluación final. ' + msg, 1.0, 1.0);
+  saveState();
+}
+
+function downloadReport(){
+  const lines = ['Informe - Extinción en Marte', 'Fecha: '+ new Date().toLocaleString(), '', 'Puntos: ' + state.points, '', 'Decisiones:'];
+  for(const k in state.completed){ lines.push(k + ' -> ' + JSON.stringify(state.completed[k])); }
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='informe_extincion_marte.txt'; a.click(); URL.revokeObjectURL(url);
+}
+
+function replay(){ if(confirm('Empezar de nuevo?')){ state={mode:state.mode, step:0, points:0, completed:{}}; saveState(); renderStep(); } }
+
+loadState();
+</script>
+</body>
+</html>
